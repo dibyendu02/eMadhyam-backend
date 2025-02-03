@@ -4,11 +4,12 @@ const Product = require("../models/productModel");
 const { singleUpload, multipleUpload } = require("../middlewares/multer");
 const { getDataUri } = require("../utils/feature");
 const cloudinary = require("cloudinary");
+const { verifyTokenandAdmin } = require("../middlewares/verifyToken");
 
 // @route   POST /api/products
 // @desc    Create a new product
-// @access  Public or Private (Adjust as needed)
-router.post("/", multipleUpload, async (req, res) => {
+// @access  Private
+router.post("/", verifyTokenandAdmin, multipleUpload, async (req, res) => {
   try {
     const {
       name,
@@ -134,7 +135,7 @@ router.get("/category/:categoryId", async (req, res) => {
 // @route   PUT /api/products/:id
 // @desc    Update product
 // @access  Private
-router.put("/:id", multipleUpload, async (req, res) => {
+router.put("/:id", multipleUpload, verifyTokenandAdmin, async (req, res) => {
   try {
     const {
       name,
@@ -208,7 +209,7 @@ router.put("/:id", multipleUpload, async (req, res) => {
 // @route   DELETE /api/products/:id
 // @desc    Delete a product
 // @access  Private
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", verifyTokenandAdmin, async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
     if (!product) return res.status(404).json({ error: "Product not found" });

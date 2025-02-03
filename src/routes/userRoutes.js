@@ -163,45 +163,45 @@ router.put(
 // @route   PUT /api/users/profile/:id
 // @desc    Update user profile
 // @access  Private
-// router.put(
-//   "/profile/:id",
-//   verifyTokenandAuthorization,
-//   singleUpload,
-//   async (req, res) => {
-//     try {
-//       const { firstName, lastName, phoneNumber, dob, gender, address } =
-//         req.body;
+router.put(
+  "/profile/:id",
+  verifyTokenandAuthorization,
+  singleUpload,
+  async (req, res) => {
+    try {
+      const { firstName, lastName, phoneNumber, dob, gender, address } =
+        req.body;
 
-//       // Get user
-//       let user = await User.findById(req.params.id);
+      // Get user
+      let user = await User.findById(req.params.id);
 
-//       // Handle image upload
-//       if (req.file) {
-//         const fileUri = getDataUri(req.file);
-//         const result = await cloudinary.v2.uploader.upload(fileUri.content);
-//         user.imageUrl = result.secure_url;
-//       }
+      // Handle image upload
+      if (req.file) {
+        const fileUri = getDataUri(req.file);
+        const result = await cloudinary.v2.uploader.upload(fileUri.content);
+        user.imageUrl = result.secure_url;
+      }
 
-//       // Update fields
-//       if (firstName) user.firstName = firstName;
-//       if (lastName) user.lastName = lastName;
-//       if (phoneNumber) user.phoneNumber = phoneNumber;
-//       if (dob) user.dob = new Date(dob);
-//       if (gender) user.gender = gender;
-//       if (address) user.address = JSON.parse(address);
+      // Update fields
+      if (firstName) user.firstName = firstName;
+      if (lastName) user.lastName = lastName;
+      if (phoneNumber) user.phoneNumber = phoneNumber;
+      if (dob) user.dob = new Date(dob);
+      if (gender) user.gender = gender;
+      if (address) user.address = JSON.parse(address);
 
-//       await user.save();
+      await user.save();
 
-//       res.json({
-//         message: "Profile updated successfully",
-//         user: getSafeUserData(user),
-//       });
-//     } catch (error) {
-//       console.error("Profile update error:", error);
-//       res.status(500).json({ error: "Server error" });
-//     }
-//   }
-// );
+      res.json({
+        message: "Profile updated successfully",
+        user: getSafeUserData(user),
+      });
+    } catch (error) {
+      console.error("Profile update error:", error);
+      res.status(500).json({ error: "Server error" });
+    }
+  }
+);
 
 // @route   DELETE /api/users/:id
 // @desc    Delete user account
@@ -230,6 +230,22 @@ router.get("/profile/:id", verifyTokenandAuthorization, async (req, res) => {
     }
 
     res.json(getSafeUserData(user));
+  } catch (error) {
+    console.error("Profile fetch error:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// @route   GET /api/users
+// @desc    Get all user profile
+// @access  Private
+router.get("/", verifyTokenandAdmin, async (req, res) => {
+  try {
+    // users which are not admin
+    const users = await User.find({ isAdmin: false })
+      .populate("cart")
+      .populate("wishlist");
+    res.json(users);
   } catch (error) {
     console.error("Profile fetch error:", error);
     res.status(500).json({ error: "Server error" });
