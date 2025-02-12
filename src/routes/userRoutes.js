@@ -169,8 +169,7 @@ router.put(
   singleUpload,
   async (req, res) => {
     try {
-      const { firstName, lastName, phoneNumber, dob, gender, address } =
-        req.body;
+      const { firstName, lastName, phoneNumber, dob, gender } = req.body;
 
       // Get user
       let user = await User.findById(req.params.id);
@@ -188,7 +187,22 @@ router.put(
       if (phoneNumber) user.phoneNumber = phoneNumber;
       if (dob) user.dob = new Date(dob);
       if (gender) user.gender = gender;
-      if (address) user.address = JSON.parse(address);
+
+      // Handle address update (assuming it's sent as an array of objects)
+      if (req.body["address[0].addressLine"]) {
+        // Construct the address array based on the form-data
+        const address = [
+          {
+            addressLine: req.body["address[0].addressLine"],
+            city: req.body["address[0].city"],
+            state: req.body["address[0].state"],
+            pinCode: req.body["address[0].pinCode"],
+            alternativeAddress: req.body["address[0].alternativeAddress"],
+            alternativeContact: req.body["address[0].alternativeContact"],
+          },
+        ];
+        user.address = address;
+      }
 
       await user.save();
 
