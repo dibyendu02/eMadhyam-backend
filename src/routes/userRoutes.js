@@ -252,4 +252,130 @@ router.get("/", verifyTokenandAdmin, async (req, res) => {
   }
 });
 
+// @route   POST /api/users/cart/:id
+// @desc    Add product to cart
+// @access  Private
+router.post("/cart/:id", verifyTokenandAuthorization, async (req, res) => {
+  try {
+    const { productId } = req.body;
+    
+    // Get user
+    const user = await User.findById(req.params.id);
+    
+    // Check if product already in cart
+    if (user.cart.includes(productId)) {
+      return res.status(400).json({ error: "Product already in cart" });
+    }
+    
+    // Add to cart
+    user.cart.push(productId);
+    await user.save();
+    
+    // Get updated user with populated cart
+    const updatedUser = await User.findById(req.params.id)
+      .populate("cart")
+      .populate("wishlist");
+    
+    res.json({
+      message: "Product added to cart successfully",
+      user: getSafeUserData(updatedUser)
+    });
+  } catch (error) {
+    console.error("Add to cart error:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// @route   DELETE /api/users/cart/:id
+// @desc    Remove product from cart
+// @access  Private
+router.delete("/cart/:id", verifyTokenandAuthorization, async (req, res) => {
+  try {
+    const { productId } = req.body;
+    
+    // Get user
+    const user = await User.findById(req.params.id);
+    
+    // Remove from cart
+    user.cart = user.cart.filter(id => id.toString() !== productId);
+    await user.save();
+    
+    // Get updated user with populated cart
+    const updatedUser = await User.findById(req.params.id)
+      .populate("cart")
+      .populate("wishlist");
+    
+    res.json({
+      message: "Product removed from cart successfully",
+      user: getSafeUserData(updatedUser)
+    });
+  } catch (error) {
+    console.error("Remove from cart error:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// @route   POST /api/users/wishlist/:id
+// @desc    Add product to wishlist
+// @access  Private
+router.post("/wishlist/:id", verifyTokenandAuthorization, async (req, res) => {
+  try {
+    const { productId } = req.body;
+    
+    // Get user
+    const user = await User.findById(req.params.id);
+    
+    // Check if product already in wishlist
+    if (user.wishlist.includes(productId)) {
+      return res.status(400).json({ error: "Product already in wishlist" });
+    }
+    
+    // Add to wishlist
+    user.wishlist.push(productId);
+    await user.save();
+    
+    // Get updated user with populated wishlist
+    const updatedUser = await User.findById(req.params.id)
+      .populate("cart")
+      .populate("wishlist");
+    
+    res.json({
+      message: "Product added to wishlist successfully",
+      user: getSafeUserData(updatedUser)
+    });
+  } catch (error) {
+    console.error("Add to wishlist error:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// @route   DELETE /api/users/wishlist/:id
+// @desc    Remove product from wishlist
+// @access  Private
+router.delete("/wishlist/:id", verifyTokenandAuthorization, async (req, res) => {
+  try {
+    const { productId } = req.body;
+    
+    // Get user
+    const user = await User.findById(req.params.id);
+    
+    // Remove from wishlist
+    user.wishlist = user.wishlist.filter(id => id.toString() !== productId);
+    await user.save();
+    
+    // Get updated user with populated wishlist
+    const updatedUser = await User.findById(req.params.id)
+      .populate("cart")
+      .populate("wishlist");
+    
+    res.json({
+      message: "Product removed from wishlist successfully",
+      user: getSafeUserData(updatedUser)
+    });
+  } catch (error) {
+    console.error("Remove from wishlist error:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 module.exports = router;
