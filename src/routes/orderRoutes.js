@@ -8,6 +8,7 @@ const {
   verifyTokenandAdmin,
 } = require("../middlewares/verifyToken");
 const Razorpay = require("razorpay");
+const crypto = require("crypto");
 
 // Initialize Razorpay
 const razorpay = new Razorpay({
@@ -25,16 +26,18 @@ router.post("/", verifyToken, async (req, res) => {
       return res.status(400).json({ error: "Products are required" });
     }
 
-    // Calculate total amount
+    // Calculate total amount and total saved
     let totalAmount = 0;
-    for (const productId of products) {
+    let totalSaved = 0;
+    for (const { productId, quantity } of products) {
       const product = await Product.findById(productId);
       if (!product) {
         return res
           .status(404)
           .json({ error: `Product ${productId} not found` });
       }
-      totalAmount += product.price;
+      totalAmount += product.price * quantity;
+      totalSaved += (product.originalPrice - product.price) * quantity;
     }
 
     // Create order
@@ -42,6 +45,10 @@ router.post("/", verifyToken, async (req, res) => {
       userId: req.user.id,
       products,
       paymentMethod,
+      paymentInfo: {
+        amountPaid: totalAmount,
+        totalSaved,
+      },
       status: "pending",
     });
 
@@ -84,7 +91,7 @@ router.get("/", verifyTokenandAdmin, async (req, res) => {
   try {
     const orders = await Order.find()
       .populate("userId", "firstName lastName email")
-      .populate("products");
+      .populate("products.productId");
     res.json(orders);
   } catch (error) {
     res.status(500).json({ error: "Server error" });
@@ -97,7 +104,7 @@ router.get("/:id", verifyTokenandAuthorization, async (req, res) => {
   try {
     const order = await Order.findById(req.params.id)
       .populate("userId", "firstName lastName email")
-      .populate("products");
+      .populate("products.productId");
 
     if (!order) {
       return res.status(404).json({ error: "Order not found" });
@@ -119,7 +126,7 @@ router.get("/:id", verifyTokenandAuthorization, async (req, res) => {
 router.get("/user/:userId", verifyTokenandAuthorization, async (req, res) => {
   try {
     const orders = await Order.find({ userId: req.params.userId })
-      .populate("products")
+      .populate("products.productId")
       .sort({ time: -1 });
     res.json(orders);
   } catch (error) {
@@ -139,7 +146,7 @@ router.put("/:id", verifyTokenandAdmin, async (req, res) => {
         ...(deliveryDate && { deliveryDate: new Date(deliveryDate) }),
       },
       { new: true }
-    ).populate("userId products");
+    ).populate("userId products.productId");
 
     if (!order) {
       return res.status(404).json({ error: "Order not found" });
