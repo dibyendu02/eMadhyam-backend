@@ -46,7 +46,7 @@ router.post("/", verifyToken, async (req, res) => {
       products,
       paymentMethod,
       paymentInfo: {
-        amountPaid: totalAmount,
+        billingAmount: totalAmount,
         totalSaved,
       },
       status: "pending",
@@ -186,6 +186,7 @@ router.delete("/:id", verifyTokenandAdmin, async (req, res) => {
 // @desc    Verify Razorpay payment
 router.post("/payment/verify", verifyToken, async (req, res) => {
   try {
+    console.log(req.body);
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
       req.body;
 
