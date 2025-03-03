@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const Order = require("../models/orderModel");
 const Product = require("../models/productModel");
+const User = require("../models/userModel");
 const {
   verifyToken,
   verifyTokenandAuthorization,
@@ -20,10 +21,28 @@ const razorpay = new Razorpay({
 // @desc    Create a new order
 router.post("/", verifyToken, async (req, res) => {
   try {
-    const { products, paymentMethod } = req.body;
+    console.log(req.body);
+    const { products, paymentMethod, addressId } = req.body;
 
     if (!products || products.length === 0) {
       return res.status(400).json({ error: "Products are required" });
+    }
+
+    if (!addressId) {
+      return res.status(400).json({ error: "Delivery address is required" });
+    }
+
+    // Find user and their address
+    const user = await User.findById(req.user.id);
+    
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Find the selected address from user's address array
+    const selectedAddress = user.address.id(addressId);
+    if (!selectedAddress) {
+      return res.status(404).json({ error: "Address not found" });
     }
 
     // Calculate total amount and total saved
@@ -50,6 +69,8 @@ router.post("/", verifyToken, async (req, res) => {
         totalSaved,
       },
       status: "pending",
+      deliveryAddress: selectedAddress.toObject(),
+      addressId: selectedAddress._id,
     });
 
     if (paymentMethod === "online") {
