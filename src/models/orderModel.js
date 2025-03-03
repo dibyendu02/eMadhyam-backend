@@ -22,6 +22,14 @@ const OrderSchema = new Schema({
     default: "pending",
   },
   deliveryDate: { type: Date },
+  // Add Razorpay payment details
+  razorpayOrder: {
+    id: { type: String },
+    amount: { type: Number },
+    currency: { type: String }
+  },
+  razorpayPaymentId: { type: String },
+  razorpaySignature: { type: String }
 });
 
 module.exports = mongoose.model("Order", OrderSchema);

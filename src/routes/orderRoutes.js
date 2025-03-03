@@ -60,6 +60,13 @@ router.post("/", verifyToken, async (req, res) => {
         receipt: order._id.toString(),
       });
 
+      // Save Razorpay order details to our order
+      order.razorpayOrder = {
+        id: razorpayOrder.id,
+        amount: razorpayOrder.amount,
+        currency: razorpayOrder.currency
+      };
+
       await order.save();
 
       res.status(201).json({
@@ -186,9 +193,7 @@ router.delete("/:id", verifyTokenandAdmin, async (req, res) => {
 // @desc    Verify Razorpay payment
 router.post("/payment/verify", verifyToken, async (req, res) => {
   try {
-    console.log(req.body);
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
-      req.body;
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, orderId } = req.body;
 
     // Verify the payment signature
     const body = razorpay_order_id + "|" + razorpay_payment_id;
@@ -198,15 +203,21 @@ router.post("/payment/verify", verifyToken, async (req, res) => {
       .digest("hex");
 
     if (expectedSignature === razorpay_signature) {
-      // Update order status
+      // Find the order using the stored Razorpay order ID
       const order = await Order.findOne({
-        "razorpayOrder.id": razorpay_order_id,
+        "razorpayOrder.id": razorpay_order_id
       });
-      if (order) {
-        order.isPaid = true;
-        order.status = "processing";
-        await order.save();
+      
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
       }
+      
+      // Update order with payment details
+      order.isPaid = true;
+      order.status = "processing";
+      order.razorpayPaymentId = razorpay_payment_id;
+      order.razorpaySignature = razorpay_signature;
+      await order.save();
 
       res.json({
         message: "Payment verified successfully",
@@ -235,13 +246,15 @@ router.post("/payment/webhook", async (req, res) => {
       const event = req.body;
 
       if (event.event === "payment.captured") {
+        const paymentEntity = event.payload.payment.entity;
         const order = await Order.findOne({
-          "razorpayOrder.id": event.payload.order.entity.id,
+          "razorpayOrder.id": paymentEntity.order_id
         });
 
         if (order) {
           order.isPaid = true;
           order.status = "processing";
+          order.razorpayPaymentId = paymentEntity.id;
           await order.save();
         }
       }
