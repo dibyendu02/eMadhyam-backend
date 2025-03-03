@@ -17,7 +17,7 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
-// @route   POST /api/orders
+// @route   POST /api/order
 // @desc    Create a new order
 router.post("/", verifyToken, async (req, res) => {
   try {
@@ -113,7 +113,7 @@ router.post("/", verifyToken, async (req, res) => {
   }
 });
 
-// @route   GET /api/orders
+// @route   GET /api/order
 // @desc    Get all orders (admin only)
 router.get("/", verifyTokenandAdmin, async (req, res) => {
   try {
@@ -126,7 +126,7 @@ router.get("/", verifyTokenandAdmin, async (req, res) => {
   }
 });
 
-// @route   GET /api/orders/:id
+// @route   GET /api/order/:id
 // @desc    Get order by ID
 router.get("/:id", verifyTokenandAuthorization, async (req, res) => {
   try {
@@ -149,11 +149,13 @@ router.get("/:id", verifyTokenandAuthorization, async (req, res) => {
   }
 });
 
-// @route   GET /api/orders/user/:userId
+// @route   GET /api/order/user/:userId
 // @desc    Get orders by user ID
-router.get("/user/:userId", verifyTokenandAuthorization, async (req, res) => {
+router.get("/user/:id", verifyTokenandAuthorization, async (req, res) => {
   try {
-    const orders = await Order.find({ userId: req.params.userId })
+
+    console.log("the userid got in backend" ,req.params.id);
+    const orders = await Order.find({ userId: req.params.id })
       .populate("products.productId")
       .sort({ time: -1 });
     res.json(orders);
@@ -162,7 +164,7 @@ router.get("/user/:userId", verifyTokenandAuthorization, async (req, res) => {
   }
 });
 
-// @route   PUT /api/orders/:id
+// @route   PUT /api/order/:id
 // @desc    Update order status
 router.put("/:id", verifyTokenandAdmin, async (req, res) => {
   try {
@@ -189,7 +191,7 @@ router.put("/:id", verifyTokenandAdmin, async (req, res) => {
   }
 });
 
-// @route   DELETE /api/orders/:id
+// @route   DELETE /api/order/:id
 // @desc    Delete order (admin only)
 router.delete("/:id", verifyTokenandAdmin, async (req, res) => {
   try {
@@ -210,7 +212,7 @@ router.delete("/:id", verifyTokenandAdmin, async (req, res) => {
   }
 });
 
-// @route   POST /api/orders/payment/verify
+// @route   POST /api/order/payment/verify
 // @desc    Verify Razorpay payment
 router.post("/payment/verify", verifyToken, async (req, res) => {
   try {
@@ -253,7 +255,7 @@ router.post("/payment/verify", verifyToken, async (req, res) => {
   }
 });
 
-// @route   POST /api/orders/payment/webhook
+// @route   POST /api/order/payment/webhook
 // @desc    Razorpay webhook handler
 router.post("/payment/webhook", async (req, res) => {
   try {
