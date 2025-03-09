@@ -5,6 +5,59 @@ const { singleUpload, multipleUpload } = require("../middlewares/multer");
 const { getDataUri } = require("../utils/feature");
 const cloudinary = require("cloudinary");
 const { verifyTokenandAdmin } = require("../middlewares/verifyToken");
+const sanitizeHtml = require("sanitize-html"); // Add this import
+
+// Define sanitize options for HTML content
+const sanitizeOptions = {
+  allowedTags: [
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "blockquote",
+    "p",
+    "a",
+    "ul",
+    "ol",
+    "nl",
+    "li",
+    "b",
+    "i",
+    "strong",
+    "em",
+    "strike",
+    "code",
+    "hr",
+    "br",
+    "div",
+    "table",
+    "thead",
+    "caption",
+    "tbody",
+    "tr",
+    "th",
+    "td",
+    "pre",
+    "span",
+  ],
+  allowedAttributes: {
+    a: ["href", "name", "target"],
+    img: ["src", "alt"],
+    "*": ["class", "style"],
+  },
+  allowedStyles: {
+    "*": {
+      color: [
+        /^#(0x)?[0-9a-f]+$/i,
+        /^rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)$/,
+      ],
+      "text-align": [/^left$/, /^right$/, /^center$/],
+      "font-weight": [/^\d+$/],
+    },
+  },
+};
 
 // @route   POST /api/products
 // @desc    Create a new product
@@ -34,13 +87,18 @@ router.post("/", verifyTokenandAdmin, multipleUpload, async (req, res) => {
       faqs,
     } = req.body;
 
+    console.log(req.body);
+
+    // Sanitize HTML content in description
+    const sanitizedDescription = description
+      ? sanitizeHtml(description, sanitizeOptions)
+      : "";
+
     let imageUrls = [];
     if (req.files && req.files.length > 0) {
-      // Changed this line
       for (let file of req.files) {
-        // Changed this line
         const fileUri = getDataUri(file);
-        const result = await cloudinary.v2.uploader.upload(fileUri.content); // Added v2
+        const result = await cloudinary.v2.uploader.upload(fileUri.content);
         imageUrls.push(result.secure_url);
       }
     }
@@ -52,7 +110,7 @@ router.post("/", verifyTokenandAdmin, multipleUpload, async (req, res) => {
       season,
       color,
       shortDescription,
-      description,
+      description: sanitizedDescription, // Use sanitized description
       price,
       originalPrice,
       discountPercentage,
@@ -163,6 +221,11 @@ router.put("/:id", multipleUpload, verifyTokenandAdmin, async (req, res) => {
     let product = await Product.findById(req.params.id);
     if (!product) return res.status(404).json({ error: "Product not found" });
 
+    // Sanitize HTML content in description
+    const sanitizedDescription = description
+      ? sanitizeHtml(description, sanitizeOptions)
+      : product.description;
+
     let imageUrls = product.imageUrls;
     if (req.files && req.files.files) {
       for (let file of req.files.files) {
@@ -181,7 +244,7 @@ router.put("/:id", multipleUpload, verifyTokenandAdmin, async (req, res) => {
         season,
         color,
         shortDescription,
-        description,
+        description: sanitizedDescription, // Use sanitized description
         price,
         originalPrice,
         discountPercentage,

@@ -13,10 +13,23 @@ const OrderAddressSchema = new Schema({
 
 const OrderSchema = new Schema({
   userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
-  products: [{ type: Schema.Types.ObjectId, ref: "Product", required: true }],
+  products: [
+    {
+      productId: {
+        type: Schema.Types.ObjectId,
+        ref: "Product",
+        required: true,
+      },
+      quantity: { type: Number, required: true, min: 1 },
+    },
+  ],
   time: { type: Date, default: Date.now },
   isPaid: { type: Boolean, default: false },
-  paymentMethod: { type: String, enum: ["cod", "online"], default: "cod" },
+  paymentMethod: { type: String },
+  paymentInfo: {
+    billingAmount: { type: Number, required: true },
+    totalSaved: { type: Number, required: true },
+  },
   status: {
     type: String,
     enum: ["pending", "processing", "delivered", "cancelled"],
@@ -24,18 +37,11 @@ const OrderSchema = new Schema({
   },
   deliveryDate: { type: Date },
   razorpayOrder: {
-    id: String,
-    amount: Number,
-    currency: String,
+    id: { type: String },
+    amount: { type: Number },
+    currency: { type: String },
   },
-  totalAmount: {
-    type: Number,
-    required: true,
-  },
-  deliveryAddress: {
-    type: OrderAddressSchema,
-    required: true,
-  },
+  deliveryAddress: { type: OrderAddressSchema, required: true },
 });
 
 module.exports = mongoose.model("Order", OrderSchema);

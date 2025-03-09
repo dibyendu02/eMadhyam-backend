@@ -169,6 +169,9 @@ router.put(
   singleUpload,
   async (req, res) => {
     try {
+      console.log("update profile api call");
+      console.log(req.body["address[0]"]);
+
       const { firstName, lastName, phoneNumber, dob, gender } = req.body;
 
       // Get user
@@ -193,7 +196,7 @@ router.put(
         // Construct the address array based on the form-data
         const address = [
           {
-            addressLine: req.body["address[0].addressLine"],
+            addressLine: req.body["address[1].addressLine"],
             city: req.body["address[0].city"],
             state: req.body["address[0].state"],
             pinCode: req.body["address[0].pinCode"],
@@ -265,5 +268,224 @@ router.get("/", verifyTokenandAdmin, async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 });
+
+// @route   POST /api/users/address/:id
+// @desc    Add a new address for a user
+// @access  Private
+router.post("/address/:id", verifyTokenandAuthorization, async (req, res) => {
+  try {
+    const {
+      addressLine,
+      city,
+      state,
+      pinCode,
+      alternativeAddress,
+      alternativeContact,
+    } = req.body;
+
+    console.log(req.body);
+
+    // Validate required fields
+    if (!addressLine || !city || !state || !pinCode) {
+      return res
+        .status(400)
+        .json({ error: "Please provide all required address fields" });
+    }
+
+    // Get user
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Create new address
+    const newAddress = {
+      addressLine,
+      city,
+      state,
+      pinCode,
+      alternativeAddress,
+      alternativeContact,
+    };
+
+    // Add address to user's address array
+    user.address.push(newAddress);
+    await user.save();
+
+    res.status(201).json({
+      message: "Address added successfully",
+      address: user.address[user.address.length - 1],
+      addresses: user.address,
+    });
+  } catch (error) {
+    console.error("Address addition error:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// @route   GET /api/users/address/:id
+// @desc    Get all addresses for a user
+// @access  Private
+router.get("/address/:id", verifyTokenandAuthorization, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json(user.address);
+  } catch (error) {
+    console.error("Address fetch error:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// @route   PUT /api/users/address/:id/:addressId
+// @desc    Update an address for a user
+// @access  Private
+router.put(
+  "/address/:id/:addressId",
+  verifyTokenandAuthorization,
+  async (req, res) => {
+    try {
+      const {
+        addressLine,
+        city,
+        state,
+        pinCode,
+        alternativeAddress,
+        alternativeContact,
+      } = req.body;
+
+      // Get user
+      const user = await User.findById(req.params.id);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Find the address in the user's address array
+      const addressIndex = user.address.findIndex(
+        (addr) => addr._id.toString() === req.params.addressId
+      );
+
+      if (addressIndex === -1) {
+        return res.status(404).json({ error: "Address not found" });
+      }
+
+      // Update address fields if provided
+      if (addressLine) user.address[addressIndex].addressLine = addressLine;
+      if (city) user.address[addressIndex].city = city;
+      if (state) user.address[addressIndex].state = state;
+      if (pinCode) user.address[addressIndex].pinCode = pinCode;
+
+      // These are optional fields, so we need to check if they're included, not just truthy
+      if (req.body.hasOwnProperty("alternativeAddress")) {
+        user.address[addressIndex].alternativeAddress = alternativeAddress;
+      }
+      if (req.body.hasOwnProperty("alternativeContact")) {
+        user.address[addressIndex].alternativeContact = alternativeContact;
+      }
+
+      await user.save();
+
+      res.json({
+        message: "Address updated successfully",
+        address: user.address[addressIndex],
+        addresses: user.address,
+      });
+    } catch (error) {
+      console.error("Address update error:", error);
+      res.status(500).json({ error: "Server error" });
+    }
+  }
+);
+
+// @route   DELETE /api/users/address/:id/:addressId
+// @desc    Delete an address for a user
+// @access  Private
+router.delete(
+  "/address/:id/:addressId",
+  verifyTokenandAuthorization,
+  async (req, res) => {
+    try {
+      // Get user
+      const user = await User.findById(req.params.id);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Find the address index
+      const addressIndex = user.address.findIndex(
+        (addr) => addr._id.toString() === req.params.addressId
+      );
+
+      if (addressIndex === -1) {
+        return res.status(404).json({ error: "Address not found" });
+      }
+
+      // Remove the address from the array
+      user.address.splice(addressIndex, 1);
+      await user.save();
+
+      res.json({
+        message: "Address deleted successfully",
+        addresses: user.address,
+      });
+    } catch (error) {
+      console.error("Address deletion error:", error);
+      res.status(500).json({ error: "Server error" });
+    }
+  }
+);
+
+// @route   POST /api/users/address/default/:id/:addressId
+// @desc    Set an address as default (moves it to first position in array)
+// @access  Private
+router.post(
+  "/address/default/:id/:addressId",
+  verifyTokenandAuthorization,
+  async (req, res) => {
+    try {
+      // Get user
+      const user = await User.findById(req.params.id);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Find the address
+      const addressIndex = user.address.findIndex(
+        (addr) => addr._id.toString() === req.params.addressId
+      );
+
+      if (addressIndex === -1) {
+        return res.status(404).json({ error: "Address not found" });
+      }
+
+      // If it's already at position 0, no need to do anything
+      if (addressIndex === 0) {
+        return res.json({
+          message: "This address is already set as default",
+          addresses: user.address,
+        });
+      }
+
+      // Remove the address from its current position
+      const addressToMove = user.address.splice(addressIndex, 1)[0];
+
+      // Add it to the beginning of the array
+      user.address.unshift(addressToMove);
+
+      await user.save();
+
+      res.json({
+        message: "Address set as default successfully",
+        addresses: user.address,
+      });
+    } catch (error) {
+      console.error("Set default address error:", error);
+      res.status(500).json({ error: "Server error" });
+    }
+  }
+);
 
 module.exports = router;

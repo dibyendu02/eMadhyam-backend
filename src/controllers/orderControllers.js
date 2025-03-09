@@ -12,6 +12,7 @@ const razorpay = new Razorpay({
 // Create new order
 exports.createOrder = async (req, res) => {
   try {
+    console.log(req.body);
     const { products, paymentMethod, addressId } = req.body;
 
     // Validate products
@@ -27,6 +28,7 @@ exports.createOrder = async (req, res) => {
 
     // Find the selected address from user's addresses
     const selectedAddress = user.address.id(addressId);
+
     if (!selectedAddress) {
       return res
         .status(400)
@@ -34,26 +36,44 @@ exports.createOrder = async (req, res) => {
     }
 
     // Calculate total amount and validate products
-    let totalAmount = 0;
-    const validProducts = [];
+    let billingAmount = 0;
+    let totalSaved = 0;
+    const orderProducts = [];
 
-    for (const productId of products) {
+    for (const item of products) {
+      const { productId, quantity } = item;
+
       const product = await Product.findById(productId);
       if (!product) {
         return res
           .status(404)
           .json({ error: `Product ${productId} not found` });
       }
-      validProducts.push(productId);
-      totalAmount += product.price;
+
+      // Assuming product has regularPrice and price (discounted) fields
+      const itemTotal = product.price * quantity;
+      billingAmount += itemTotal;
+
+      // Calculate savings if product has regularPrice
+      if (product.regularPrice) {
+        totalSaved += (product.regularPrice - product.price) * quantity;
+      }
+
+      orderProducts.push({
+        productId,
+        quantity: quantity || 1, // Default to 1 if quantity not provided
+      });
     }
 
     // Create order with delivery address
     const order = new Order({
       userId: req.user.id,
-      products: validProducts,
+      products: orderProducts,
       paymentMethod,
-      totalAmount,
+      paymentInfo: {
+        billingAmount,
+        totalSaved,
+      },
       deliveryAddress: {
         addressLine: selectedAddress.addressLine,
         city: selectedAddress.city,
@@ -67,7 +87,7 @@ exports.createOrder = async (req, res) => {
     // Handle online payment
     if (paymentMethod === "online") {
       const razorpayOrder = await razorpay.orders.create({
-        amount: Math.round(totalAmount * 100),
+        amount: Math.round(billingAmount * 100),
         currency: "INR",
         receipt: order._id.toString(),
       });
@@ -83,13 +103,14 @@ exports.createOrder = async (req, res) => {
 
     // Clear cart after successful order creation
     user.cart = user.cart.filter(
-      (cartItem) => !products.includes(cartItem.toString())
+      (cartItem) =>
+        !products.some((p) => p.productId.toString() === cartItem.toString())
     );
     await user.save();
 
     const response = {
       message: "Order created successfully",
-      order: await order.populate("products"),
+      order: await Order.findById(order._id).populate("products.productId"),
     };
 
     if (paymentMethod === "online") {
@@ -108,7 +129,7 @@ exports.getAllOrders = async (req, res) => {
   try {
     const orders = await Order.find()
       .populate("userId", "firstName lastName email phoneNumber")
-      .populate("products");
+      .populate("products.productId");
     res.json(orders);
   } catch (error) {
     console.error("Get all orders error:", error);
@@ -121,7 +142,7 @@ exports.getOrderById = async (req, res) => {
   try {
     const order = await Order.findById(req.params.id)
       .populate("userId", "firstName lastName email phoneNumber")
-      .populate("products");
+      .populate("products.productId");
 
     if (!order) {
       return res.status(404).json({ error: "Order not found" });
@@ -148,7 +169,7 @@ exports.getUserOrders = async (req, res) => {
     }
 
     const orders = await Order.find({ userId: req.params.userId })
-      .populate("products")
+      .populate("products.productId")
       .sort({ time: -1 });
     res.json(orders);
   } catch (error) {
@@ -168,7 +189,7 @@ exports.updateOrder = async (req, res) => {
         ...(deliveryDate && { deliveryDate: new Date(deliveryDate) }),
       },
       { new: true }
-    ).populate("userId products");
+    ).populate("userId products.productId");
 
     if (!order) {
       return res.status(404).json({ error: "Order not found" });
