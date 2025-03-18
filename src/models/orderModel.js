@@ -2,13 +2,14 @@ const mongoose = require("mongoose");
 
 const { Schema } = mongoose;
 
-const OrderAddressSchema = new Schema({
+// Copy of Address Schema from User model for embedding in orders
+const AddressSchema = new Schema({
   addressLine: { type: String, required: true },
   city: { type: String, required: true },
   state: { type: String, required: true },
   pinCode: { type: Number, required: true },
-  alternativeAddress: String,
-  alternativeContact: String,
+  alternativeAddress: { type: String },
+  alternativeContact: { type: String },
 });
 
 const OrderSchema = new Schema({
@@ -36,12 +37,18 @@ const OrderSchema = new Schema({
     default: "pending",
   },
   deliveryDate: { type: Date },
+  // Add delivery address - store the complete address
+  deliveryAddress: { type: AddressSchema, required: true },
+  // Store address ID from user profile for reference
+  addressId: { type: Schema.Types.ObjectId },
+  // Add Razorpay payment details
   razorpayOrder: {
     id: { type: String },
     amount: { type: Number },
     currency: { type: String },
   },
-  deliveryAddress: { type: OrderAddressSchema, required: true },
+  razorpayPaymentId: { type: String },
+  razorpaySignature: { type: String },
 });
 
 module.exports = mongoose.model("Order", OrderSchema);

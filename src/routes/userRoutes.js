@@ -269,220 +269,131 @@ router.get("/", verifyTokenandAdmin, async (req, res) => {
   }
 });
 
-// @route   POST /api/users/address/:id
-// @desc    Add a new address for a user
+// @route   POST /api/users/cart/:id
+// @desc    Add product to cart
 // @access  Private
-router.post("/address/:id", verifyTokenandAuthorization, async (req, res) => {
+router.post("/cart/:id", verifyTokenandAuthorization, async (req, res) => {
   try {
-    const {
-      addressLine,
-      city,
-      state,
-      pinCode,
-      alternativeAddress,
-      alternativeContact,
-    } = req.body;
-
-    console.log(req.body);
-
-    // Validate required fields
-    if (!addressLine || !city || !state || !pinCode) {
-      return res
-        .status(400)
-        .json({ error: "Please provide all required address fields" });
-    }
+    const { productId } = req.body;
 
     // Get user
     const user = await User.findById(req.params.id);
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
+
+    // Check if product already in cart
+    if (user.cart.includes(productId)) {
+      return res.status(400).json({ error: "Product already in cart" });
     }
 
-    // Create new address
-    const newAddress = {
-      addressLine,
-      city,
-      state,
-      pinCode,
-      alternativeAddress,
-      alternativeContact,
-    };
-
-    // Add address to user's address array
-    user.address.push(newAddress);
+    // Add to cart
+    user.cart.push(productId);
     await user.save();
 
-    res.status(201).json({
-      message: "Address added successfully",
-      address: user.address[user.address.length - 1],
-      addresses: user.address,
+    // Get updated user with populated cart
+    const updatedUser = await User.findById(req.params.id)
+      .populate("cart")
+      .populate("wishlist");
+
+    res.json({
+      message: "Product added to cart successfully",
+      user: getSafeUserData(updatedUser),
     });
   } catch (error) {
-    console.error("Address addition error:", error);
+    console.error("Add to cart error:", error);
     res.status(500).json({ error: "Server error" });
   }
 });
 
-// @route   GET /api/users/address/:id
-// @desc    Get all addresses for a user
+// @route   DELETE /api/users/cart/:id
+// @desc    Remove product from cart
 // @access  Private
-router.get("/address/:id", verifyTokenandAuthorization, async (req, res) => {
+router.delete("/cart/:id", verifyTokenandAuthorization, async (req, res) => {
   try {
-    const user = await User.findById(req.params.id);
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
+    const { productId } = req.body;
 
-    res.json(user.address);
+    // Get user
+    const user = await User.findById(req.params.id);
+
+    // Remove from cart
+    user.cart = user.cart.filter((id) => id.toString() !== productId);
+    await user.save();
+
+    // Get updated user with populated cart
+    const updatedUser = await User.findById(req.params.id)
+      .populate("cart")
+      .populate("wishlist");
+
+    res.json({
+      message: "Product removed from cart successfully",
+      user: getSafeUserData(updatedUser),
+    });
   } catch (error) {
-    console.error("Address fetch error:", error);
+    console.error("Remove from cart error:", error);
     res.status(500).json({ error: "Server error" });
   }
 });
 
-// @route   PUT /api/users/address/:id/:addressId
-// @desc    Update an address for a user
+// @route   POST /api/users/wishlist/:id
+// @desc    Add product to wishlist
 // @access  Private
-router.put(
-  "/address/:id/:addressId",
-  verifyTokenandAuthorization,
-  async (req, res) => {
-    try {
-      const {
-        addressLine,
-        city,
-        state,
-        pinCode,
-        alternativeAddress,
-        alternativeContact,
-      } = req.body;
+router.post("/wishlist/:id", verifyTokenandAuthorization, async (req, res) => {
+  try {
+    const { productId } = req.body;
 
-      // Get user
-      const user = await User.findById(req.params.id);
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
+    // Get user
+    const user = await User.findById(req.params.id);
 
-      // Find the address in the user's address array
-      const addressIndex = user.address.findIndex(
-        (addr) => addr._id.toString() === req.params.addressId
-      );
-
-      if (addressIndex === -1) {
-        return res.status(404).json({ error: "Address not found" });
-      }
-
-      // Update address fields if provided
-      if (addressLine) user.address[addressIndex].addressLine = addressLine;
-      if (city) user.address[addressIndex].city = city;
-      if (state) user.address[addressIndex].state = state;
-      if (pinCode) user.address[addressIndex].pinCode = pinCode;
-
-      // These are optional fields, so we need to check if they're included, not just truthy
-      if (req.body.hasOwnProperty("alternativeAddress")) {
-        user.address[addressIndex].alternativeAddress = alternativeAddress;
-      }
-      if (req.body.hasOwnProperty("alternativeContact")) {
-        user.address[addressIndex].alternativeContact = alternativeContact;
-      }
-
-      await user.save();
-
-      res.json({
-        message: "Address updated successfully",
-        address: user.address[addressIndex],
-        addresses: user.address,
-      });
-    } catch (error) {
-      console.error("Address update error:", error);
-      res.status(500).json({ error: "Server error" });
+    // Check if product already in wishlist
+    if (user.wishlist.includes(productId)) {
+      return res.status(400).json({ error: "Product already in wishlist" });
     }
-  }
-);
 
-// @route   DELETE /api/users/address/:id/:addressId
-// @desc    Delete an address for a user
+    // Add to wishlist
+    user.wishlist.push(productId);
+    await user.save();
+
+    // Get updated user with populated wishlist
+    const updatedUser = await User.findById(req.params.id)
+      .populate("cart")
+      .populate("wishlist");
+
+    res.json({
+      message: "Product added to wishlist successfully",
+      user: getSafeUserData(updatedUser),
+    });
+  } catch (error) {
+    console.error("Add to wishlist error:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// @route   DELETE /api/users/wishlist/:id
+// @desc    Remove product from wishlist
 // @access  Private
 router.delete(
-  "/address/:id/:addressId",
+  "/wishlist/:id",
   verifyTokenandAuthorization,
   async (req, res) => {
     try {
+      const { productId } = req.body;
+
       // Get user
       const user = await User.findById(req.params.id);
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
 
-      // Find the address index
-      const addressIndex = user.address.findIndex(
-        (addr) => addr._id.toString() === req.params.addressId
-      );
-
-      if (addressIndex === -1) {
-        return res.status(404).json({ error: "Address not found" });
-      }
-
-      // Remove the address from the array
-      user.address.splice(addressIndex, 1);
+      // Remove from wishlist
+      user.wishlist = user.wishlist.filter((id) => id.toString() !== productId);
       await user.save();
 
-      res.json({
-        message: "Address deleted successfully",
-        addresses: user.address,
-      });
-    } catch (error) {
-      console.error("Address deletion error:", error);
-      res.status(500).json({ error: "Server error" });
-    }
-  }
-);
-
-// @route   POST /api/users/address/default/:id/:addressId
-// @desc    Set an address as default (moves it to first position in array)
-// @access  Private
-router.post(
-  "/address/default/:id/:addressId",
-  verifyTokenandAuthorization,
-  async (req, res) => {
-    try {
-      // Get user
-      const user = await User.findById(req.params.id);
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
-
-      // Find the address
-      const addressIndex = user.address.findIndex(
-        (addr) => addr._id.toString() === req.params.addressId
-      );
-
-      if (addressIndex === -1) {
-        return res.status(404).json({ error: "Address not found" });
-      }
-
-      // If it's already at position 0, no need to do anything
-      if (addressIndex === 0) {
-        return res.json({
-          message: "This address is already set as default",
-          addresses: user.address,
-        });
-      }
-
-      // Remove the address from its current position
-      const addressToMove = user.address.splice(addressIndex, 1)[0];
-
-      // Add it to the beginning of the array
-      user.address.unshift(addressToMove);
-
-      await user.save();
+      // Get updated user with populated wishlist
+      const updatedUser = await User.findById(req.params.id)
+        .populate("cart")
+        .populate("wishlist");
 
       res.json({
-        message: "Address set as default successfully",
-        addresses: user.address,
+        message: "Product removed from wishlist successfully",
+        user: getSafeUserData(updatedUser),
       });
     } catch (error) {
-      console.error("Set default address error:", error);
+      console.error("Remove from wishlist error:", error);
       res.status(500).json({ error: "Server error" });
     }
   }

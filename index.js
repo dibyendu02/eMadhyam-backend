@@ -10,7 +10,7 @@ const plantTypeRoutes = require("./src/routes/plantTypeRoutes");
 const productTypeRoutes = require("./src/routes/productTypeRoutes");
 const productRoutes = require("./src/routes/productRoutes");
 const userRoutes = require("./src/routes/userRoutes");
-const OrderRoutes = require("./src/routes/orderRoutes");
+const orderRoutes = require("./src/routes/orderRoutes");
 
 dotenv.config();
 
@@ -35,7 +35,7 @@ app.use("/api/planttype", plantTypeRoutes);
 app.use("/api/producttype", productTypeRoutes);
 app.use("/api/product", productRoutes);
 app.use("/api/user", userRoutes);
-app.use("/api/order", OrderRoutes);
+app.use("/api/order", orderRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
