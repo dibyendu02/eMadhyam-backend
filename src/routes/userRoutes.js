@@ -6,13 +6,51 @@ const User = require("../models/userModel");
 const { singleUpload } = require("../middlewares/multer");
 const { getDataUri } = require("../utils/feature");
 const cloudinary = require("cloudinary");
+const mongoose = require("mongoose");
 const {
   verifyToken,
   verifyTokenandAuthorization,
   verifyTokenandAdmin,
 } = require("../middlewares/verifyToken");
 
-// Helper function to return safe user data
+// // Helper function to return safe user data
+// const getSafeUserData = (user) => {
+//   // Get a plain JavaScript object
+//   const userObj = user.toObject ? user.toObject() : user;
+
+//   // Modify cart structure to maintain compatibility with frontend
+//   if (userObj.cart && Array.isArray(userObj.cart)) {
+//     // Check if this is the new structure with product/quantity objects
+//     if (userObj.cart.length > 0 && userObj.cart[0].product) {
+//       // Convert cart items to a flat array of products, duplicating for quantity
+//       const flattenedCart = [];
+//       userObj.cart.forEach((item) => {
+//         if (item.product && item.quantity) {
+//           // For each item in cart, add 'quantity' number of occurrences of the product
+//           for (let i = 0; i < item.quantity; i++) {
+//             flattenedCart.push(item.product);
+//           }
+//         }
+//       });
+//       userObj.cart = flattenedCart;
+//     }
+//   }
+
+//   return {
+//     _id: userObj._id,
+//     firstName: userObj.firstName,
+//     lastName: userObj.lastName,
+//     email: userObj.email,
+//     phoneNumber: userObj.phoneNumber,
+//     imageUrl: userObj.imageUrl,
+//     dob: userObj.dob,
+//     gender: userObj.gender,
+//     address: userObj.address,
+//     cart: userObj.cart, // This is now the flattened cart
+//     wishlist: userObj.wishlist,
+//     isAdmin: userObj.isAdmin,
+//   };
+// };
 const getSafeUserData = (user) => ({
   _id: user._id,
   firstName: user.firstName,
@@ -239,6 +277,10 @@ router.delete("/:id", verifyTokenandAuthorization, async (req, res) => {
 router.get("/profile/:id", verifyTokenandAuthorization, async (req, res) => {
   try {
     const user = await User.findById(req.params.id)
+      .populate({
+        path: "cart.product", // Populate product inside cart items
+        model: "Product",
+      })
       .populate("cart")
       .populate("wishlist");
 
@@ -276,21 +318,63 @@ router.post("/cart/:id", verifyTokenandAuthorization, async (req, res) => {
   try {
     const { productId } = req.body;
 
+    if (!productId) {
+      return res.status(400).json({ error: "Product ID is required" });
+    }
+
     // Get user
     const user = await User.findById(req.params.id);
 
     // Check if product already in cart
-    if (user.cart.includes(productId)) {
-      return res.status(400).json({ error: "Product already in cart" });
+    // Handle both old and new cart structure
+    let isInCart = false;
+
+    if (Array.isArray(user.cart)) {
+      // Check if it's a simple array of product IDs (old structure)
+      if (
+        (user.cart.length > 0 && typeof user.cart[0] === "string") ||
+        user.cart[0] instanceof mongoose.Types.ObjectId
+      ) {
+        isInCart = user.cart.some((id) => id.toString() === productId);
+
+        if (!isInCart) {
+          // Add to cart (old structure)
+          user.cart.push(productId);
+        }
+      }
+      // Check if it's an array of objects with product and quantity (new structure)
+      else if (user.cart.length > 0 && user.cart[0].product) {
+        const existingCartItem = user.cart.find(
+          (item) => item.product && item.product.toString() === productId
+        );
+
+        if (existingCartItem) {
+          // Increment quantity
+          existingCartItem.quantity += 1;
+          isInCart = true;
+        } else {
+          // Add new item
+          user.cart.push({ product: productId, quantity: 1 });
+        }
+      }
+      // Empty cart or undefined structure - add as new item with new structure
+      else {
+        user.cart = [{ product: productId, quantity: 1 }];
+      }
+    } else {
+      // Initialize cart if it doesn't exist
+      user.cart = [{ product: productId, quantity: 1 }];
     }
 
-    // Add to cart
-    user.cart.push(productId);
     await user.save();
 
     // Get updated user with populated cart
     const updatedUser = await User.findById(req.params.id)
-      .populate("cart")
+      .populate({
+        path: "cart.product", // For new structure
+        model: "Product",
+      })
+      .populate("cart") // For old structure
       .populate("wishlist");
 
     res.json({
@@ -310,16 +394,53 @@ router.delete("/cart/:id", verifyTokenandAuthorization, async (req, res) => {
   try {
     const { productId } = req.body;
 
+    if (!productId) {
+      return res.status(400).json({ error: "Product ID is required" });
+    }
+
     // Get user
     const user = await User.findById(req.params.id);
 
-    // Remove from cart
-    user.cart = user.cart.filter((id) => id.toString() !== productId);
+    // Handle both old and new cart structure
+    if (Array.isArray(user.cart)) {
+      // Check if it's a simple array of product IDs (old structure)
+      if (
+        user.cart.length > 0 &&
+        (typeof user.cart[0] === "string" ||
+          user.cart[0] instanceof mongoose.Types.ObjectId)
+      ) {
+        // Remove from cart (old structure)
+        user.cart = user.cart.filter((id) => id && id.toString() !== productId);
+      }
+      // Check if it's an array of objects with product and quantity (new structure)
+      else if (user.cart.length > 0 && user.cart[0].product) {
+        const cartItemIndex = user.cart.findIndex(
+          (item) => item.product && item.product.toString() === productId
+        );
+
+        if (cartItemIndex !== -1) {
+          const cartItem = user.cart[cartItemIndex];
+
+          if (cartItem.quantity > 1) {
+            // If quantity > 1, decrement quantity
+            cartItem.quantity -= 1;
+          } else {
+            // If quantity = 1, remove the item
+            user.cart.splice(cartItemIndex, 1);
+          }
+        }
+      }
+    }
+
     await user.save();
 
     // Get updated user with populated cart
     const updatedUser = await User.findById(req.params.id)
-      .populate("cart")
+      .populate({
+        path: "cart.product", // For new structure
+        model: "Product",
+      })
+      .populate("cart") // For old structure
       .populate("wishlist");
 
     res.json({

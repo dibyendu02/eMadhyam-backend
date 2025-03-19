@@ -11,6 +11,12 @@ const AddressSchema = new Schema({
   alternativeContact: { type: String },
 });
 
+// New schema for cart items with quantity
+const CartItemSchema = new Schema({
+  product: { type: Schema.Types.ObjectId, ref: "Product", required: true },
+  quantity: { type: Number, required: true, default: 1, min: 1 },
+});
+
 const UserSchema = new Schema(
   {
     firstName: { type: String, required: true },
@@ -19,7 +25,7 @@ const UserSchema = new Schema(
     isEmailVerified: { type: Boolean, default: false },
     phoneNumber: { type: String, required: true },
     password: { type: String, required: true },
-    cart: [{ type: Schema.Types.ObjectId, ref: "Product" }],
+    cart: [CartItemSchema], // Changed to use CartItemSchema
     wishlist: [{ type: Schema.Types.ObjectId, ref: "Product" }],
     imageUrl: { type: String },
     dob: { type: Date },
