@@ -39,6 +39,7 @@ const ProductSchema = new Schema(
         answer: { type: String },
       },
     ],
+    isCodAvailable: { type: Boolean, default: true },
   },
   { timestamps: true }
 );

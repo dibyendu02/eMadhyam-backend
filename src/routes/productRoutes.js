@@ -5,7 +5,7 @@ const { singleUpload, multipleUpload } = require("../middlewares/multer");
 const { getDataUri } = require("../utils/feature");
 const cloudinary = require("cloudinary");
 const { verifyTokenandAdmin } = require("../middlewares/verifyToken");
-const sanitizeHtml = require("sanitize-html"); // Add this import
+const sanitizeHtml = require("sanitize-html");
 
 // Define sanitize options for HTML content
 const sanitizeOptions = {
@@ -85,6 +85,7 @@ router.post("/", verifyTokenandAdmin, multipleUpload, async (req, res) => {
       waterRequirement,
       sunlightRequirement,
       faqs,
+      isCodAvailable, // Add the new field here
     } = req.body;
 
     console.log(req.body);
@@ -110,7 +111,7 @@ router.post("/", verifyTokenandAdmin, multipleUpload, async (req, res) => {
       season,
       color,
       shortDescription,
-      description: sanitizedDescription, // Use sanitized description
+      description: sanitizedDescription,
       price,
       originalPrice,
       discountPercentage,
@@ -125,6 +126,7 @@ router.post("/", verifyTokenandAdmin, multipleUpload, async (req, res) => {
       waterRequirement,
       sunlightRequirement,
       faqs: faqs ? JSON.parse(faqs) : [],
+      isCodAvailable: isCodAvailable !== undefined ? isCodAvailable : true, // Set default to true if not provided
     });
 
     await newProduct.save();
@@ -216,6 +218,7 @@ router.put("/:id", multipleUpload, verifyTokenandAdmin, async (req, res) => {
       waterRequirement,
       sunlightRequirement,
       faqs,
+      isCodAvailable, // Add the new field here
     } = req.body;
 
     let product = await Product.findById(req.params.id);
@@ -227,13 +230,15 @@ router.put("/:id", multipleUpload, verifyTokenandAdmin, async (req, res) => {
       : product.description;
 
     let imageUrls = product.imageUrls;
-    if (req.files && req.files.files) {
-      for (let file of req.files.files) {
-        const fileUri = getDataUri(file).content;
-        const result = await cloudinary.uploader.upload(fileUri);
+    if (req.files && req.files.length > 0) {
+      for (let file of req.files) {
+        const fileUri = getDataUri(file);
+        const result = await cloudinary.v2.uploader.upload(fileUri.content);
         imageUrls.push(result.secure_url);
       }
     }
+
+    console.log(imageUrls);
 
     product = await Product.findByIdAndUpdate(
       req.params.id,
@@ -244,7 +249,7 @@ router.put("/:id", multipleUpload, verifyTokenandAdmin, async (req, res) => {
         season,
         color,
         shortDescription,
-        description: sanitizedDescription, // Use sanitized description
+        description: sanitizedDescription,
         price,
         originalPrice,
         discountPercentage,
@@ -259,6 +264,10 @@ router.put("/:id", multipleUpload, verifyTokenandAdmin, async (req, res) => {
         waterRequirement,
         sunlightRequirement,
         faqs: faqs ? JSON.parse(faqs) : [],
+        isCodAvailable:
+          isCodAvailable !== undefined
+            ? isCodAvailable
+            : product.isCodAvailable, // Preserve existing value if not provided
       },
       { new: true }
     );
