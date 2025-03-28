@@ -192,6 +192,22 @@ router.get("/category/:categoryId", async (req, res) => {
   }
 });
 
+// @route   GET /api/products/type/:productTypeId
+// @desc    Get all products by product type
+// @access  Public
+router.get("/type/:productTypeId", async (req, res) => {
+  try {
+    const products = await Product.find({
+      productType: req.params.productTypeId,
+    }).populate("category productType plantType color");
+
+    res.status(200).json(products);
+  } catch (error) {
+    console.error("Error fetching products by product type:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 // @route   PUT /api/products/:id
 // @desc    Update product
 // @access  Private
