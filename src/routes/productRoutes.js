@@ -59,6 +59,15 @@ const sanitizeOptions = {
   },
 };
 
+// Helper function to handle ObjectId references
+const handleObjectIdField = (value) => {
+  // If value is null, undefined, or empty string, return null (remove the field)
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+  return value;
+};
+
 // @route   POST /api/products
 // @desc    Create a new product
 // @access  Private
@@ -85,7 +94,7 @@ router.post("/", verifyTokenandAdmin, multipleUpload, async (req, res) => {
       waterRequirement,
       sunlightRequirement,
       faqs,
-      isCodAvailable, // Add the new field here
+      isCodAvailable,
     } = req.body;
 
     console.log(req.body);
@@ -104,31 +113,46 @@ router.post("/", verifyTokenandAdmin, multipleUpload, async (req, res) => {
       }
     }
 
-    const newProduct = new Product({
+    // Create product object with only required and provided fields
+    const productData = {
       name,
       imageUrls,
       category,
-      season,
-      color,
-      shortDescription,
       description: sanitizedDescription,
       price,
-      originalPrice,
-      discountPercentage,
-      sizeRanges,
-      inStock,
-      productType,
-      plantType,
-      isBestseller,
-      isTrending,
-      weight,
-      dimensions,
-      waterRequirement,
-      sunlightRequirement,
-      faqs: faqs ? JSON.parse(faqs) : [],
-      isCodAvailable: isCodAvailable !== undefined ? isCodAvailable : true, // Set default to true if not provided
-    });
+      inStock: inStock !== undefined ? inStock : true,
+      isCodAvailable: isCodAvailable !== undefined ? isCodAvailable : true,
+    };
 
+    // Add optional fields only if they are provided
+    if (season) productData.season = season;
+
+    // Handle ObjectId references safely
+    const safeColor = handleObjectIdField(color);
+    if (safeColor !== null) productData.color = safeColor;
+
+    if (shortDescription) productData.shortDescription = shortDescription;
+    if (originalPrice) productData.originalPrice = originalPrice;
+    if (discountPercentage) productData.discountPercentage = discountPercentage;
+    if (sizeRanges) productData.sizeRanges = sizeRanges;
+
+    // Handle ObjectId references safely
+    const safeProductType = handleObjectIdField(productType);
+    if (safeProductType !== null) productData.productType = safeProductType;
+
+    const safePlantType = handleObjectIdField(plantType);
+    if (safePlantType !== null) productData.plantType = safePlantType;
+
+    if (isBestseller !== undefined) productData.isBestseller = isBestseller;
+    if (isTrending !== undefined) productData.isTrending = isTrending;
+    if (weight) productData.weight = weight;
+    if (dimensions) productData.dimensions = dimensions;
+    if (waterRequirement) productData.waterRequirement = waterRequirement;
+    if (sunlightRequirement)
+      productData.sunlightRequirement = sunlightRequirement;
+    if (faqs) productData.faqs = JSON.parse(faqs);
+
+    const newProduct = new Product(productData);
     await newProduct.save();
 
     // Populate the new product before sending the response
@@ -234,7 +258,7 @@ router.put("/:id", multipleUpload, verifyTokenandAdmin, async (req, res) => {
       waterRequirement,
       sunlightRequirement,
       faqs,
-      isCodAvailable, // Add the new field here
+      isCodAvailable,
     } = req.body;
 
     let product = await Product.findById(req.params.id);
@@ -254,43 +278,103 @@ router.put("/:id", multipleUpload, verifyTokenandAdmin, async (req, res) => {
       }
     }
 
-    console.log(imageUrls);
+    // Create update object with only fields that are provided
+    const updateData = {};
 
-    product = await Product.findByIdAndUpdate(
-      req.params.id,
-      {
-        name,
-        imageUrls,
-        category,
-        season,
-        color,
-        shortDescription,
-        description: sanitizedDescription,
-        price,
-        originalPrice,
-        discountPercentage,
-        sizeRanges,
-        inStock,
-        productType,
-        plantType,
-        isBestseller,
-        isTrending,
-        weight,
-        dimensions,
-        waterRequirement,
-        sunlightRequirement,
-        faqs: faqs ? JSON.parse(faqs) : [],
-        isCodAvailable:
-          isCodAvailable !== undefined
-            ? isCodAvailable
-            : product.isCodAvailable, // Preserve existing value if not provided
-      },
-      { new: true }
-    );
+    if (name) updateData.name = name;
+    if (imageUrls) updateData.imageUrls = imageUrls;
+    if (category) updateData.category = category;
+    if (season) updateData.season = season;
+
+    // Handle ObjectId references properly for update
+    if (color !== undefined) {
+      const safeColor = handleObjectIdField(color);
+      if (safeColor === null) {
+        // If null, use $unset to remove the field
+        updateData.$unset = { ...updateData.$unset, color: 1 };
+      } else {
+        updateData.color = safeColor;
+      }
+    }
+
+    if (shortDescription !== undefined)
+      updateData.shortDescription = shortDescription;
+    if (sanitizedDescription) updateData.description = sanitizedDescription;
+    if (price) updateData.price = price;
+    if (originalPrice !== undefined) updateData.originalPrice = originalPrice;
+    if (discountPercentage !== undefined)
+      updateData.discountPercentage = discountPercentage;
+    if (sizeRanges) updateData.sizeRanges = sizeRanges;
+    if (inStock !== undefined) updateData.inStock = inStock;
+
+    // Handle ObjectId references properly for update
+    if (productType !== undefined) {
+      const safeProductType = handleObjectIdField(productType);
+      if (safeProductType === null) {
+        updateData.$unset = { ...updateData.$unset, productType: 1 };
+      } else {
+        updateData.productType = safeProductType;
+      }
+    }
+
+    if (plantType !== undefined) {
+      const safePlantType = handleObjectIdField(plantType);
+      if (safePlantType === null) {
+        updateData.$unset = { ...updateData.$unset, plantType: 1 };
+      } else {
+        updateData.plantType = safePlantType;
+      }
+    }
+
+    if (isBestseller !== undefined) updateData.isBestseller = isBestseller;
+    if (isTrending !== undefined) updateData.isTrending = isTrending;
+    if (weight !== undefined) updateData.weight = weight;
+    if (dimensions !== undefined) updateData.dimensions = dimensions;
+    if (waterRequirement !== undefined)
+      updateData.waterRequirement = waterRequirement;
+    if (sunlightRequirement !== undefined)
+      updateData.sunlightRequirement = sunlightRequirement;
+    if (faqs) updateData.faqs = JSON.parse(faqs);
+    if (isCodAvailable !== undefined)
+      updateData.isCodAvailable = isCodAvailable;
+
+    // Use a different approach for update to handle $unset operations
+    const updateOptions = { new: true };
+
+    if (updateData.$unset) {
+      // If we have fields to unset, handle them separately
+      const fieldsToSet = { ...updateData };
+      delete fieldsToSet.$unset;
+
+      // First update the fields to set
+      product = await Product.findByIdAndUpdate(
+        req.params.id,
+        { $set: fieldsToSet },
+        updateOptions
+      );
+
+      // Then unset the fields that need to be removed
+      product = await Product.findByIdAndUpdate(
+        req.params.id,
+        { $unset: updateData.$unset },
+        updateOptions
+      );
+    } else {
+      // No fields to unset, just update normally
+      product = await Product.findByIdAndUpdate(
+        req.params.id,
+        { $set: updateData },
+        updateOptions
+      );
+    }
+
+    // Populate the references before returning
+    await product.populate("category productType plantType color");
 
     res.status(200).json({ message: "Product updated successfully", product });
   } catch (error) {
-    res.status(500).json({ error: "Server error" });
+    console.error("Error updating product:", error);
+    res.status(500).json({ error: "Server error", details: error.message });
   }
 });
 

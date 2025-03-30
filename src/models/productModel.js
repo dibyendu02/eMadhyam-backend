@@ -7,7 +7,7 @@ const ProductSchema = new Schema(
     imageUrls: { type: [String], required: true },
     category: { type: Schema.Types.ObjectId, ref: "Category", required: true },
     season: { type: String, default: "All" },
-    color: { type: Schema.Types.ObjectId, ref: "ColorType", required: true },
+    color: { type: Schema.Types.ObjectId, ref: "ColorType" },
     shortDescription: { type: String },
     description: { type: String },
     rating: { type: Number },
