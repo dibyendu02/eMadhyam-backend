@@ -259,6 +259,7 @@ router.put("/:id", multipleUpload, verifyTokenandAdmin, async (req, res) => {
       sunlightRequirement,
       faqs,
       isCodAvailable,
+      existingImages, // Changed from existingImageUrls for clarity
     } = req.body;
 
     let product = await Product.findById(req.params.id);
@@ -269,7 +270,24 @@ router.put("/:id", multipleUpload, verifyTokenandAdmin, async (req, res) => {
       ? sanitizeHtml(description, sanitizeOptions)
       : product.description;
 
-    let imageUrls = product.imageUrls;
+    // Handle image URLs - use the provided list of existing images if available
+    let imageUrls = [];
+
+    // Parse the existingImages JSON string if it exists
+    if (existingImages) {
+      try {
+        imageUrls = JSON.parse(existingImages);
+      } catch (error) {
+        console.error("Error parsing existingImages:", error);
+        // If parsing fails, use the current images as fallback
+        imageUrls = product.imageUrls || [];
+      }
+    } else {
+      // If no existingImages provided, keep current images
+      imageUrls = product.imageUrls || [];
+    }
+
+    // Add any new uploaded images
     if (req.files && req.files.length > 0) {
       for (let file of req.files) {
         const fileUri = getDataUri(file);
@@ -282,7 +300,7 @@ router.put("/:id", multipleUpload, verifyTokenandAdmin, async (req, res) => {
     const updateData = {};
 
     if (name) updateData.name = name;
-    if (imageUrls) updateData.imageUrls = imageUrls;
+    updateData.imageUrls = imageUrls; // Always update the image URLs
     if (category) updateData.category = category;
     if (season) updateData.season = season;
 
