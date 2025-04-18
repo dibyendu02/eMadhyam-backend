@@ -21,9 +21,9 @@ const UserSchema = new Schema(
   {
     firstName: { type: String, required: true },
     lastName: { type: String },
-    email: { type: String, required: true, unique: true },
+    email: { type: String, unique: true, sparse: true },
     isEmailVerified: { type: Boolean, default: false },
-    phoneNumber: { type: String, required: true },
+    phoneNumber: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     cart: [CartItemSchema], // Changed to use CartItemSchema
     wishlist: [{ type: Schema.Types.ObjectId, ref: "Product" }],

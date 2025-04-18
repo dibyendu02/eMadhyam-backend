@@ -73,18 +73,26 @@ router.post("/register", singleUpload, async (req, res) => {
   try {
     const { email, password, firstName, lastName, phoneNumber } = req.body;
 
-    // Check for existing user
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ error: "User already exists" });
+    // Check for existing phone number
+    const existingPhoneUser = await User.findOne({ phoneNumber });
+    if (existingPhoneUser) {
+      return res.status(400).json({ error: "Phone number already registered" });
+    }
+
+    // If email is provided, check if already exists
+    if (email) {
+      const existingEmailUser = await User.findOne({ email });
+      if (existingEmailUser) {
+        return res.status(400).json({ error: "Email already registered" });
+      }
     }
 
     // Handle image upload
     let imageUrl = "";
     if (req.file) {
-      const fileUri = getDataUri(req.file); // Convert file buffer to data URI
-      const result = await cloudinary.uploader.upload(fileUri.content); // Upload to Cloudinary
-      imageUrl = result.secure_url; // Store Cloudinary URL
+      const fileUri = getDataUri(req.file);
+      const result = await cloudinary.uploader.upload(fileUri.content);
+      imageUrl = result.secure_url;
     }
 
     // Hash password
@@ -104,12 +112,8 @@ router.post("/register", singleUpload, async (req, res) => {
 
     await user.save();
 
-    // Create JWT token
     const token = jwt.sign(
-      {
-        id: user._id,
-        isAdmin: user.isAdmin,
-      },
+      { id: user._id, isAdmin: user.isAdmin },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
@@ -129,26 +133,32 @@ router.post("/register", singleUpload, async (req, res) => {
 // @access  Public
 router.post("/login", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { identifier, password } = req.body;
 
-    // Find user
-    const user = await User.findOne({ email });
+    if (!identifier || !password) {
+      return res
+        .status(400)
+        .json({ error: "Identifier and password are required" });
+    }
+
+    // Determine if identifier is email or phone number
+    const isEmail = identifier.includes("@");
+
+    const user = await User.findOne(
+      isEmail ? { email: identifier } : { phoneNumber: identifier }
+    );
+
     if (!user) {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    // Check password
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    // Create JWT token
     const token = jwt.sign(
-      {
-        id: user._id,
-        isAdmin: user.isAdmin,
-      },
+      { id: user._id, isAdmin: user.isAdmin },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
